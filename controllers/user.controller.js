@@ -96,3 +96,48 @@ export const logout = async (req, res) => {
     }
 }
 
+export const getUserDetails = async (req,res) => {
+    const { userId } = req.query;
+
+  // Validate if userId is provided
+  if (!userId) {
+    return res.status(400).json({ error: 'Please provide userId' });
+  }
+
+  try {
+    // Find the user by userId
+    const user = await User.findById(userId);
+
+    // If the user is not found, return an error
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Return user details (name, email, mobile)
+    res.json({
+      name: user.name,
+      email: user.email,
+      mobile: user.mobile
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+
+export const getAllUsers = async (req, res) => {
+    try {
+        // Find all users from the database
+        const users = await User.find({}, 'name email mobile'); // Select only name, email, and mobile fields
+    
+        // If no users are found, return an empty array
+        if (users.length === 0) {
+          return res.json({ message: 'No users found' });
+        }
+    
+        // Return the list of all users
+        res.json(users);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+}

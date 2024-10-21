@@ -40,7 +40,7 @@ export const addExpense = async (req, res) => {
   }
 };
 
-export const getExpense = async (req, res) => {
+export const getExpenses = async (req, res) => {
     const { userId, name } = req.query;
   
   let filter = {};
@@ -56,4 +56,72 @@ export const getExpense = async (req, res) => {
   } catch (error) {
     res.status(404).json({ error: 'No expenses found' });
   } 
+}
+
+
+export const getExpense = async (req, res) => {
+    const { userId, name } = req.query;
+  
+  if (!userId && !name) {
+    return res.status(400).json({ error: 'Please provide either userId or name' });
+  }
+  
+  let filter = {};
+  if (userId) {
+    filter = { "participants.userId": userId };
+  } else if (name) {
+    filter = { "participants.name": name };
+  }
+
+  try {
+    const expenses = await Expense.find(filter);
+    const participantExpenses = expenses.map(expense => {
+      // Find the participant details in the expense
+      const participant = expense.participants.find(p => 
+        (userId && p.userId == userId) || (name && p.name === name)
+      );
+      return {
+        description: expense.description,
+        totalAmount: expense.totalAmount,
+        splitMethod: expense.splitMethod,
+        participantAmount: participant.amount, // The amount the participant owes
+        percentage: participant.percentage || null, // Only for percentage split
+        createdAt: expense.createdAt
+      };
+    });
+    
+    res.json(participantExpenses);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+} 
+
+export const getUserOverallExpense = async (req,res) => {
+    const { userId } = req.query;
+
+  // Validate if userId is provided
+  if (!userId) {
+    return res.status(400).json({ error: 'Please provide userId' });
+  }
+
+  try {
+    // Find all expenses where the user is a participant
+    const expenses = await Expense.find({ "participants.userId": userId });
+
+    // If no expenses are found, return 0
+    if (expenses.length === 0) {
+      return res.json({ userId, overallExpense: 0 });
+    }
+
+    // Calculate the total amount the user is responsible for across all expenses
+    const overallExpense = expenses.reduce((total, expense) => {
+      const participant = expense.participants.find(p => p.userId == userId);
+      return total + participant.amount;
+    }, 0);
+
+    // Return the userId and overall expense
+    res.json({ userId, overallExpense });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 }
