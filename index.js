@@ -5,6 +5,7 @@ import dotenv from 'dotenv'
 import  connectDB from './config/db.js'
 // import userRoutes from './routes/user.routes.js'
 import userRoutes from './routes/userRouts.js'
+import expenseRoutes from './routes/expense.route.js'
 
 
 dotenv.config()
@@ -17,6 +18,7 @@ app.use(express.urlencoded({extended:true}))
 app.use(CookieParser())
 
 app.use('/api/v1/user', userRoutes)
+app.use('/api/v1/expense', expenseRoutes)
 
 app.listen(PORT, (req,res) => {
     console.log(`Server is running on port ${PORT}`)
