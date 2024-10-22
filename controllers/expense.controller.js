@@ -1,4 +1,11 @@
 import {Expense} from '../models/expense.model.js'
+import xlsx from 'xlsx'
+import fs from 'fs'
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const addExpense = async (req, res) => {
   const { description, totalAmount, splitMethod, participants } = req.body;
@@ -121,6 +128,53 @@ export const getUserOverallExpense = async (req,res) => {
 
     // Return the userId and overall expense
     res.json({ userId, overallExpense });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+export const downloadBalanceSheet = async (req, res) => {
+  try {
+    // Fetch all expenses from the database
+    const expenses = await Expense.find({}).populate('participants.userId', 'name email');
+
+    // Prepare the data to be added to the Excel sheet
+    const expenseData = expenses.map(expense => {
+      return expense.participants.map(participant => ({
+        Expense_Name: expense.name,
+        Total_Amount: expense.amount,
+        Date: expense.date ? expense.date.toISOString().split('T')[0] : 'N/A', // Check if the date exists
+        Participant_Name: participant.userId ? participant.userId.name : 'N/A', // Check if userId exists
+        Participant_Email: participant.userId ? participant.userId.email : 'N/A',
+        Amount_Owed: participant.amount
+      }));
+    }).flat();
+
+    // Create a new workbook and worksheet
+    const wb = xlsx.utils.book_new();
+    const ws = xlsx.utils.json_to_sheet(expenseData);
+
+    // Append the worksheet to the workbook
+    xlsx.utils.book_append_sheet(wb, ws, 'BalanceSheet');
+
+    // Define the file path to save the Excel file
+    const filePath = path.join(__dirname, 'balance-sheet.xlsx');
+
+    // Write the Excel file to the filesystem
+    xlsx.writeFile(wb, filePath);
+
+    // Set headers to indicate file download
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=balance-sheet.xlsx');
+
+    // Send the file for download and delete it from the server afterward
+    res.download(filePath, 'balance-sheet.xlsx', err => {
+      if (err) {
+        console.error('Error sending the file:', err);
+      }
+      // Clean up the file after download
+      fs.unlinkSync(filePath);
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
